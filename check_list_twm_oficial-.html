@@ -1110,16 +1110,25 @@ function salvarChecklist() {
     solicitacao_manutencao: document.getElementById('f_solicitacao_manutencao')?.value || '',
   };
 
-  // Salvar localmente sempre
-  checklists.push(registro);
-  localStorage.setItem('twm_checklists', JSON.stringify(checklists));
+  // Versão sem foto para salvar localmente (evita erro de quota)
+  const registroLocal = { ...registro, foto_auto_avaliacao: registro.foto_auto_avaliacao ? 'Foto enviada' : '' };
+
+  // Salvar localmente sempre (sem a foto)
+  checklists.push(registroLocal);
+  try {
+    localStorage.setItem('twm_checklists', JSON.stringify(checklists));
+  } catch(e) {
+    // Se ainda der erro, limpa registros antigos
+    checklists = checklists.slice(-20);
+    localStorage.setItem('twm_checklists', JSON.stringify(checklists));
+  }
 
   // Fechar form e atualizar tela
   showScreen('app');
   showPage('detalhe');
   renderHistoricoVeiculo(veiculo);
 
-  // Enviar para planilha
+  // Enviar para planilha (com a foto)
   if (!SCRIPT_URL) {
     showToast('✅ Check List salvo!');
     return;
