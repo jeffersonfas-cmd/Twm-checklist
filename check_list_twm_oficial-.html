@@ -936,11 +936,10 @@ function formatarData(d) {
 
 // ===== FORM CHECKLIST =====
 function horaBrasil() {
-  // Força horário de Brasília (UTC-3)
-  const now = new Date();
-  const offset = -3 * 60; // UTC-3 em minutos
-  const local = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
-  return local.toISOString().slice(0, 16);
+  // Horário de Brasília: UTC - 3 horas
+  const utc = new Date();
+  const br = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
+  return br.toISOString().slice(0, 16);
 }
 
 function abrirFormChecklist() {
@@ -1050,11 +1049,11 @@ function salvarChecklist() {
   const veiculo = caminhaoAtual ? caminhaoAtual.vp : '';
   const motorista = document.getElementById('f_motorista').value.trim();
   const km = document.getElementById('f_km_atual').value;
-  const now = new Date();
   const pad = n => String(n).padStart(2,'0');
-  // Horário de Brasília fixo UTC-3
-  const br = new Date(now.getTime() + (now.getTimezoneOffset() - 180) * 60000 * -1);
-  const data_hora = `${pad(br.getDate())}/${pad(br.getMonth()+1)}/${br.getFullYear()} ${pad(br.getHours())}:${pad(br.getMinutes())}:${pad(br.getSeconds())}`;
+  // Horário de Brasília: pega UTC e subtrai 3 horas
+  const utc = new Date();
+  const br = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
+  const data_hora = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`;
 
   const registro = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
