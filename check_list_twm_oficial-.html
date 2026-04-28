@@ -939,15 +939,67 @@ function abrirDetalhe(vp) {
   document.getElementById('det-marca').textContent = caminhaoAtual.marca || '-';
   document.getElementById('det-ano').textContent = caminhaoAtual.ano;
   document.getElementById('det-modelo').textContent = caminhaoAtual.modelo;
-  renderHistoricoVeiculo(vp);
+  carregarHistoricoVeiculo(vp);
   showPage('detalhe');
 }
 
-function renderHistoricoVeiculo(vp) {
+async function carregarHistoricoVeiculo(vp) {
   const div = document.getElementById('hist-caminhao');
-  const lista = checklists.filter(c => c.veiculo === vp).sort((a,b) => new Date(b.data_hora) - new Date(a.data_hora));
-  if (!lista.length) { div.innerHTML = '<div class="no-items">Nenhum check list registrado</div>'; return; }
-  div.innerHTML = lista.map(c => checklistCard(c)).join('');
+  div.innerHTML = '<div class="no-items">⏳ Carregando histórico...</div>';
+
+  if (!SCRIPT_URL || !navigator.onLine) {
+    div.innerHTML = '<div class="no-items">Nenhum check list registrado</div>';
+    return;
+  }
+
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const url = `${SCRIPT_URL}?action=historico_veiculo&veiculo=${encodeURIComponent(vp)}`;
+      const res  = await fetch(url, { method: 'GET', redirect: 'follow' });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Resposta inválida'); }
+
+      if (!data.ok || !data.registros.length) {
+        div.innerHTML = '<div class="no-items">Nenhum check list registrado</div>';
+        return;
+      }
+
+      div.innerHTML = data.registros.map(r => {
+        const dataFmt = formatarDataHistorico(r.data);
+        return `<div class="checklist-hist-item ${r.temNao ? 'has-issues' : ''}"
+             onclick="abrirModalHistoricoVeiculo('${r.id}', ${JSON.stringify(r).replace(/'/g,"&#39;")})">
+          <div class="hist-meta">
+            <span class="hist-motorista">${r.motorista}</span>
+            <span class="hist-badge ${r.temNao ? 'issue' : 'ok'}">${r.temNao ? '⚠️ Atenção' : '✅ OK'}</span>
+          </div>
+          <div class="hist-date">📅 ${dataFmt}</div>
+          <div class="hist-km">KM: ${r.km}</div>
+          ${r.manutencao ? `<div style="margin-top:6px;font-size:12px;color:var(--orange);font-weight:500;">🔧 ${r.manutencao}</div>` : ''}
+        </div>`;
+      }).join('');
+      return;
+
+    } catch(err) {
+      if (tentativa === 3) {
+        div.innerHTML = '<div class="no-items">Nenhum check list registrado</div>';
+      } else {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+  }
+}
+
+// Cache dos registros do veículo para o modal
+let registrosVeiculoCache = {};
+
+function abrirModalHistoricoVeiculo(id, registro) {
+  // Usa o mesmo modal de histórico
+  abrirModalHistorico(id, registro);
+}
+
+function renderHistoricoVeiculo(vp) {
+  carregarHistoricoVeiculo(vp);
 }
 
 function checklistCard(c) {
@@ -1254,8 +1306,8 @@ function filtrarHist(filtro, btn) {
   renderHistoricoFiltrado(filtro);
 }
 
-function abrirModalHistorico(id) {
-  const r = historicoBruto.find(x => x.id === id);
+function abrirModalHistorico(id, registroDirecto) {
+  const r = registroDirecto || historicoBruto.find(x => x.id === id);
   if (!r) return;
 
   let html = `<div class="modal-title">${r.veiculo} — Check List</div>`;
