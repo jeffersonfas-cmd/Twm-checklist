@@ -316,11 +316,21 @@
     padding: 48px 20px 24px; color: #fff;
   }
   .perfil-avatar {
-    width: 62px; height: 62px; border-radius: 50%;
-    background: rgba(255,255,255,0.2); border: 2.5px solid rgba(255,255,255,0.45);
+    width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.45);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Rajdhani', sans-serif; font-size: 26px; font-weight: 700;
-    color: #fff; margin-bottom: 12px;
+    font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 700;
+    color: #fff; margin-bottom: 12px; cursor: pointer;
+    position: relative; overflow: hidden;
+  }
+  .perfil-avatar img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+  }
+  .perfil-avatar-edit {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.45); padding: 4px 0;
+    font-size: 10px; font-weight: 600; color: #fff;
+    text-align: center; letter-spacing: 0.5px;
   }
   .perfil-nome { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; }
   .perfil-perfil { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
@@ -495,7 +505,11 @@
 <div class="perfil-overlay" id="perfil-overlay" onclick="fecharPerfil()"></div>
 <div class="perfil-drawer" id="perfil-drawer">
   <div class="perfil-drawer-header">
-    <div class="perfil-avatar" id="perfil-avatar">?</div>
+    <div class="perfil-avatar" id="perfil-avatar" onclick="document.getElementById('foto-perfil-input').click()">
+      ?
+      <div class="perfil-avatar-edit">📷 Editar</div>
+    </div>
+    <input type="file" id="foto-perfil-input" accept="image/*" capture="user" style="display:none" onchange="atualizarFotoPerfil(this)">
     <div class="perfil-nome" id="perfil-nome">—</div>
     <div class="perfil-perfil" id="perfil-cargo">Motorista · TWM Transportes</div>
   </div>
@@ -739,6 +753,30 @@ async function enviarParaPlanilha(registro) {
   }
 }
 
+// ===== FOTO DE PERFIL =====
+function atualizarFotoPerfil(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const foto = e.target.result;
+    // Salvar no localStorage
+    localStorage.setItem('twm_foto_perfil', foto);
+    // Atualizar avatar
+    const av = document.getElementById('perfil-avatar');
+    av.innerHTML = `<img src="${foto}"><div class="perfil-avatar-edit">📷 Editar</div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function carregarFotoPerfil() {
+  const foto = localStorage.getItem('twm_foto_perfil');
+  if (foto) {
+    const av = document.getElementById('perfil-avatar');
+    av.innerHTML = `<img src="${foto}"><div class="perfil-avatar-edit">📷 Editar</div>`;
+  }
+}
+
 // ===== MENU PERFIL =====
 function abrirPerfil() {
   document.getElementById('perfil-overlay').classList.add('open');
@@ -830,6 +868,7 @@ function entrarNoApp(motorista) {
   document.getElementById('user-chip').textContent = (motorista.nome || motorista.email).split(' ')[0];
   document.getElementById('login-error').style.display = 'none';
   preencherPerfil(motorista);
+  carregarFotoPerfil();
   showScreen('app');
   showPage('caminhoes');
   renderCaminhoes();
