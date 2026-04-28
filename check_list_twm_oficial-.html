@@ -385,7 +385,7 @@
     <div class="login-logo">
       <div class="logo-circle">TWM</div>
       <h1>TWM CHECK LIST</h1>
-      <p>Gestão de Frota — Transporte de Combustível</p>
+      <p>Gestão de Frotas — Transportes Especiais LTDA</p>
     </div>
     <div class="login-form">
       <h2>Acesse sua conta</h2>
@@ -831,7 +831,10 @@ async function fazerLogin() {
     btnLogin.disabled = false;
 
     if (data.ok) {
-      localStorage.setItem('twm_user_cache', JSON.stringify({ ...data.motorista, senha }));
+      localStorage.setItem('twm_user_cache', JSON.stringify({ 
+        ...data.motorista, senha,
+        loginTime: Date.now()
+      }));
       entrarNoApp(data.motorista);
     } else {
       mostrarErroLogin(data.msg || 'Email ou senha incorretos.');
@@ -882,6 +885,10 @@ function logout() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
+  // Empurra estado no histórico para interceptar seta voltar
+  if (id === 'app' || id === 'form') {
+    history.pushState({ screen: id, page: 'caminhoes' }, '');
+  }
 }
 
 function showPage(page) {
@@ -891,16 +898,44 @@ function showPage(page) {
     document.getElementById('page-caminhoes').style.display = 'block';
     document.getElementById('nav-caminhoes').classList.add('active');
     document.getElementById('header-title').textContent = 'CAMINHÕES';
+    history.replaceState({ screen: 'app', page: 'caminhoes' }, '');
   } else if (page === 'detalhe') {
     document.getElementById('page-detalhe').style.display = 'block';
     document.getElementById('header-title').textContent = 'DETALHES';
+    history.pushState({ screen: 'app', page: 'detalhe' }, '');
   } else if (page === 'historico') {
     document.getElementById('page-historico').style.display = 'block';
     document.getElementById('nav-historico').classList.add('active');
     document.getElementById('header-title').textContent = 'HISTÓRICO';
+    history.pushState({ screen: 'app', page: 'historico' }, '');
     carregarHistorico();
   }
 }
+
+// Intercepta seta voltar do celular
+window.addEventListener('popstate', function(e) {
+  const state = e.state;
+  // Se está no formulário → volta para detalhes
+  const formAtivo = document.getElementById('screen-form')?.classList.contains('active');
+  if (formAtivo) {
+    showScreen('app');
+    showPage('detalhe');
+    return;
+  }
+  // Se está no detalhe → volta para caminhões
+  const detalheAtivo = document.getElementById('page-detalhe')?.style.display === 'block';
+  if (detalheAtivo && document.getElementById('screen-app')?.classList.contains('active')) {
+    showPage('caminhoes');
+    return;
+  }
+  // Se está em outra aba → vai para caminhões
+  const appAtivo = document.getElementById('screen-app')?.classList.contains('active');
+  if (appAtivo) {
+    showPage('caminhoes');
+    return;
+  }
+  // Se está no login → não faz nada (deixa fechar)
+});
 
 // ===== CAMINHOES =====
 function renderCaminhoes() {
@@ -1316,9 +1351,34 @@ function abrirModalHistorico(id, registroDirecto) {
   html += `<div class="modal-row"><span class="modal-row-label">KM Atual</span><span class="modal-row-val">${r.km}</span></div>`;
   if (r.carreta) html += `<div class="modal-row"><span class="modal-row-label">Carreta Reserva</span><span class="modal-row-val" style="color:var(--orange);font-weight:700">${r.carreta}</span></div>`;
 
+  // Títulos de seção que não devem aparecer como itens
+  const TITULOS_SECAO = [
+    'DOCUMENTAÇÃO', 'ITENS DE CABINE', 'ITENS GERAIS',
+    'ITENS ACESSÓRIO E EMERGÊNCIAS', 'AUTO AVALIAÇÃO'
+  ];
+
   if (r.itens && r.itens.length) {
-    html += `<div class="modal-section">ITENS DO CHECKLIST</div>`;
+    // Agrupar por seção
+    let secaoAtual = '';
+    const secoes = {
+      'Estou "Apto para o trabalho"?': 'AUTO AVALIAÇÃO',
+      'Motorista (CNH e MOPP)': 'DOCUMENTAÇÃO',
+      'Computador de bordo': 'ITENS DE CABINE',
+      'Cavalo e semirreboque sem avarias': 'ITENS GERAIS',
+      'Calços de borracha': 'ITENS ACESSÓRIO E EMERGÊNCIAS',
+    };
+
     r.itens.forEach(item => {
+      // Pular títulos de seção
+      if (TITULOS_SECAO.includes(item.label)) {
+        html += `<div class="modal-section">${item.label}</div>`;
+        return;
+      }
+      // Verificar se mudou de seção
+      if (secoes[item.label] && secoes[item.label] !== secaoAtual) {
+        secaoAtual = secoes[item.label];
+        html += `<div class="modal-section">${secaoAtual}</div>`;
+      }
       const cls = item.valor === 'Sim' ? 'sim' : item.valor === 'Não' ? 'nao' : '';
       html += `<div class="modal-row"><span class="modal-row-label" style="font-size:11px">${item.label}</span><span class="modal-row-val ${cls}">${item.valor || '-'}</span></div>`;
     });
@@ -1382,14 +1442,8 @@ function showToast(msg) {
 // Enter no login
 document.getElementById('login-senha').addEventListener('keypress', e => { if (e.key === 'Enter') fazerLogin(); });
 
-// Mostra aviso de primeiro login só se nunca fez login antes
-(function verificarPrimeiroLogin() {
-  const jaFezLogin = localStorage.getItem('twm_user_cache');
-  const aviso = document.getElementById('aviso-primeiro-login');
-  if (jaFezLogin) {
-    aviso.style.display = 'none'; // já fez login antes — esconde o aviso
-  }
-})();
+
+// ===== LOGIN PERSISTENTE — verifica ao abrir =====
 </script>
 </body>
 </html>
