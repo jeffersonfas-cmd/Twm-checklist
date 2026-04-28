@@ -898,7 +898,7 @@ function showPage(page) {
     document.getElementById('page-historico').style.display = 'block';
     document.getElementById('nav-historico').classList.add('active');
     document.getElementById('header-title').textContent = 'HISTÓRICO';
-    renderHistoricoGeral();
+    carregarHistorico();
   }
 }
 
@@ -1155,24 +1155,101 @@ function salvarChecklist() {
   }
 }
 
-// ===== HISTORICO GERAL =====
-function renderHistoricoGeral(filtro = 'todos') {
+// ===== HISTÓRICO — busca direto da planilha =====
+let historicoCache = [];
+let historicoBruto = [];
+let filtroAtual = 'todos';
+
+async function carregarHistorico() {
   const div = document.getElementById('lista-historico');
-  let lista = [...checklists].sort((a,b) => new Date(b.data_hora) - new Date(a.data_hora));
-  if (filtro === 'ok') lista = lista.filter(c => !temNao(c) && !c.solicitacao_manutencao);
-  if (filtro === 'issues') lista = lista.filter(c => temNao(c));
-  if (filtro === 'manutencao') lista = lista.filter(c => c.solicitacao_manutencao);
-  if (!lista.length) { div.innerHTML = '<div class="no-items">Nenhum registro encontrado</div>'; return; }
-  div.innerHTML = lista.map(c => `
-    <div style="margin-bottom:4px;font-size:12px;font-weight:600;color:var(--purple)">${c.veiculo}</div>
-    ${checklistCard(c)}
-  `).join('');
+  div.innerHTML = '<div class="no-items">⏳ Carregando seu histórico...</div>';
+
+  if (!usuarioLogado || !SCRIPT_URL) {
+    div.innerHTML = '<div class="no-items">Configure o Apps Script para ver o histórico.</div>';
+    return;
+  }
+
+  if (!navigator.onLine) {
+    div.innerHTML = '<div class="no-items">📵 Sem internet — histórico indisponível offline.</div>';
+    return;
+  }
+
+  try {
+    const url = `${SCRIPT_URL}?action=historico&email=${encodeURIComponent(usuarioLogado.email)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (!data.ok) {
+      div.innerHTML = `<div class="no-items">Erro ao carregar histórico.</div>`;
+      return;
+    }
+
+    historicoBruto = data.registros || [];
+    document.getElementById('hist-sub').textContent =
+      `${historicoBruto.length} checklist(s) encontrado(s)`;
+    renderHistoricoFiltrado(filtroAtual);
+
+  } catch(err) {
+    div.innerHTML = '<div class="no-items">❌ Erro de conexão. Tente novamente.</div>';
+  }
+}
+
+function renderHistoricoFiltrado(filtro) {
+  filtroAtual = filtro;
+  const div = document.getElementById('lista-historico');
+  let lista = [...historicoBruto];
+
+  if (filtro === 'ok')        lista = lista.filter(r => !r.temNao && !r.manutencao);
+  if (filtro === 'issues')    lista = lista.filter(r => r.temNao);
+  if (filtro === 'manutencao')lista = lista.filter(r => r.manutencao);
+
+  if (!lista.length) {
+    div.innerHTML = '<div class="no-items">Nenhum registro encontrado.</div>';
+    return;
+  }
+
+  div.innerHTML = lista.map(r => `
+    <div class="checklist-hist-item ${r.temNao ? 'has-issues' : ''}"
+         onclick="abrirModalHistorico('${r.id}')">
+      <div class="hist-meta">
+        <span class="hist-motorista">${r.veiculo} ${r.carreta ? '· ' + r.carreta : ''}</span>
+        <span class="hist-badge ${r.temNao ? 'issue' : 'ok'}">${r.temNao ? '⚠️ Atenção' : '✅ OK'}</span>
+      </div>
+      <div class="hist-date">📅 ${r.data}</div>
+      <div class="hist-km">KM: ${r.km} ${r.placa ? '· ' + r.placa : ''}</div>
+      ${r.manutencao ? `<div style="margin-top:6px;font-size:12px;color:var(--orange);font-weight:500;">🔧 ${r.manutencao}</div>` : ''}
+    </div>`).join('');
 }
 
 function filtrarHist(filtro, btn) {
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
-  renderHistoricoGeral(filtro);
+  renderHistoricoFiltrado(filtro);
+}
+
+function abrirModalHistorico(id) {
+  const r = historicoBruto.find(x => x.id === id);
+  if (!r) return;
+
+  let html = `<div class="modal-title">${r.veiculo} — Check List</div>`;
+  html += `<div class="modal-row"><span class="modal-row-label">Motorista</span><span class="modal-row-val">${r.motorista}</span></div>`;
+  html += `<div class="modal-row"><span class="modal-row-label">Data/Hora</span><span class="modal-row-val">${r.data}</span></div>`;
+  html += `<div class="modal-row"><span class="modal-row-label">KM Atual</span><span class="modal-row-val">${r.km}</span></div>`;
+  if (r.carreta) html += `<div class="modal-row"><span class="modal-row-label">Carreta Reserva</span><span class="modal-row-val" style="color:var(--orange);font-weight:700">${r.carreta}</span></div>`;
+
+  if (r.itens && r.itens.length) {
+    html += `<div class="modal-section">ITENS DO CHECKLIST</div>`;
+    r.itens.forEach(item => {
+      const cls = item.valor === 'Sim' ? 'sim' : item.valor === 'Não' ? 'nao' : '';
+      html += `<div class="modal-row"><span class="modal-row-label" style="font-size:11px">${item.label}</span><span class="modal-row-val ${cls}">${item.valor || '-'}</span></div>`;
+    });
+  }
+
+  if (r.justificativa) html += `<div class="modal-section">JUSTIFICATIVA</div><div style="padding:10px;background:var(--gray-50);border-radius:8px;font-size:14px;margin-bottom:8px">${r.justificativa}</div>`;
+  if (r.manutencao) html += `<div class="modal-section">SOLICITAÇÃO DE MANUTENÇÃO</div><div style="padding:10px;background:#fff7ed;border-radius:8px;font-size:14px;color:var(--orange);font-weight:500">${r.manutencao}</div>`;
+
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
 }
 
 // ===== MODAL =====
