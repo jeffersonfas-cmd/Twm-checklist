@@ -32,7 +32,8 @@
     --shadow: 0 2px 12px rgba(123,47,190,0.10);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
+  html { overscroll-behavior: none; }
+  body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; overscroll-behavior: none; }
 
   /* ===== SCREENS ===== */
   .screen { display: none; min-height: 100vh; flex-direction: column; }
@@ -1438,6 +1439,22 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
+
+// ===== BLOQUEAR PULL-TO-REFRESH =====
+// Impede que deslizar para baixo no topo feche/recarregue o app
+let lastTouchY = 0;
+document.addEventListener('touchstart', e => {
+  lastTouchY = e.touches[0].clientY;
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  const touchY = e.touches[0].clientY;
+  const touchDelta = touchY - lastTouchY;
+  // Se está no topo da página e deslizando para baixo — bloqueia
+  if (touchDelta > 0 && (document.scrollingElement.scrollTop === 0 || window.scrollY === 0)) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // Enter no login
 document.getElementById('login-senha').addEventListener('keypress', e => { if (e.key === 'Enter') fazerLogin(); });
