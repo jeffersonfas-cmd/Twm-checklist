@@ -1174,24 +1174,51 @@ async function carregarHistorico() {
     return;
   }
 
-  try {
-    const url = `${SCRIPT_URL}?action=historico&email=${encodeURIComponent(usuarioLogado.email)}`;
-    const res  = await fetch(url);
-    const data = await res.json();
+  // Tenta até 3 vezes automaticamente
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const url = `${SCRIPT_URL}?action=historico&email=${encodeURIComponent(usuarioLogado.email)}`;
+      const res  = await fetch(url, { method: 'GET', redirect: 'follow' });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error('Resposta inválida'); }
 
-    if (!data.ok) {
-      div.innerHTML = `<div class="no-items">Erro ao carregar histórico.</div>`;
-      return;
+      if (!data.ok) {
+        div.innerHTML = `<div class="no-items">Erro: ${data.msg || 'Desconhecido'}</div>`;
+        return;
+      }
+
+      historicoBruto = (data.registros || []).map(r => ({
+        ...r,
+        data: formatarDataHistorico(r.data)
+      }));
+      document.getElementById('hist-sub').textContent =
+        `${historicoBruto.length} checklist(s) encontrado(s)`;
+      renderHistoricoFiltrado(filtroAtual);
+      return; // sucesso — sai do loop
+
+    } catch(err) {
+      if (tentativa === 3) {
+        div.innerHTML = `<div class="no-items">❌ Erro de conexão. Verifique o sinal e tente novamente.</div>`;
+      } else {
+        // Aguarda 1s e tenta de novo
+        await new Promise(r => setTimeout(r, 1000));
+      }
     }
-
-    historicoBruto = data.registros || [];
-    document.getElementById('hist-sub').textContent =
-      `${historicoBruto.length} checklist(s) encontrado(s)`;
-    renderHistoricoFiltrado(filtroAtual);
-
-  } catch(err) {
-    div.innerHTML = '<div class="no-items">❌ Erro de conexão. Tente novamente.</div>';
   }
+}
+
+function formatarDataHistorico(dataStr) {
+  if (!dataStr) return '-';
+  // Formato: "28/04/2026 15:18:45" — já está certo, retorna direto
+  if (dataStr.includes('/')) return dataStr;
+  // Formato ISO ou GMT — converte
+  try {
+    const d = new Date(dataStr);
+    const pad = n => String(n).padStart(2,'0');
+    const br = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+    return `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}`;
+  } catch(e) { return dataStr; }
 }
 
 function renderHistoricoFiltrado(filtro) {
