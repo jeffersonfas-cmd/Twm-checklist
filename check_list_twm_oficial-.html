@@ -10,7 +10,7 @@
 <title>TWM CHECK LIST</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {A
+  :root {
     --purple: #7B2FBE;
     --purple-dark: #5a1f8f;
     --purple-light: #9b4fd4;
@@ -1051,11 +1051,10 @@ function salvarChecklist() {
   const motorista = document.getElementById('f_motorista').value.trim();
   const km = document.getElementById('f_km_atual').value;
   const now = new Date();
-  const now = new Date();
   const pad = n => String(n).padStart(2,'0');
-  // Horário de Brasília (UTC-3)
-  const br = new Date(now.getTime() - 3*60*60*1000);
-  const data_hora = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`;
+  // Horário de Brasília fixo UTC-3
+  const br = new Date(now.getTime() + (now.getTimezoneOffset() - 180) * 60000 * -1);
+  const data_hora = `${pad(br.getDate())}/${pad(br.getMonth()+1)}/${br.getFullYear()} ${pad(br.getHours())}:${pad(br.getMinutes())}:${pad(br.getSeconds())}`;
 
   const registro = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
