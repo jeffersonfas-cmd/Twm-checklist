@@ -32,8 +32,8 @@
     --shadow: 0 2px 12px rgba(123,47,190,0.10);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { overscroll-behavior: none; }
-  body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; overscroll-behavior: none; }
+  html { overscroll-behavior: none; overscroll-behavior-y: none; }
+  body { font-family: 'Inter', sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; overscroll-behavior: none; overscroll-behavior-y: none; touch-action: pan-x pan-y; }
 
   /* ===== SCREENS ===== */
   .screen { display: none; min-height: 100vh; flex-direction: column; }
@@ -832,11 +832,9 @@ async function fazerLogin() {
     btnLogin.disabled = false;
 
     if (data.ok) {
-      localStorage.setItem('twm_user_cache', JSON.stringify({ 
-        ...data.motorista, senha,
-        loginTime: Date.now()
-      }));
-      entrarNoApp(data.motorista);
+      const motoristaSalvo = { ...data.motorista, senha, loginTime: Date.now() };
+      localStorage.setItem('twm_user_cache', JSON.stringify(motoristaSalvo));
+      entrarNoApp(motoristaSalvo);
     } else {
       mostrarErroLogin(data.msg || 'Email ou senha incorretos.');
     }
@@ -1441,18 +1439,24 @@ function showToast(msg) {
 }
 
 // ===== BLOQUEAR PULL-TO-REFRESH =====
-// Impede que deslizar para baixo no topo feche/recarregue o app
-let lastTouchY = 0;
-document.addEventListener('touchstart', e => {
-  lastTouchY = e.touches[0].clientY;
-}, { passive: false });
-
 document.addEventListener('touchmove', e => {
-  const touchY = e.touches[0].clientY;
-  const touchDelta = touchY - lastTouchY;
-  // Se está no topo da página e deslizando para baixo — bloqueia
-  if (touchDelta > 0 && (document.scrollingElement.scrollTop === 0 || window.scrollY === 0)) {
-    e.preventDefault();
+  if (e.touches.length !== 1) return;
+  const touch = e.touches[0];
+  const el = e.target;
+  // Verifica se há elemento com scroll vertical acima
+  let node = el;
+  let canScroll = false;
+  while (node && node !== document.body) {
+    if (node.scrollHeight > node.clientHeight && 
+        window.getComputedStyle(node).overflowY !== 'hidden') {
+      canScroll = true;
+      break;
+    }
+    node = node.parentElement;
+  }
+  // Se não tem scroll ou está no topo — bloqueia
+  if (!canScroll || (node && node.scrollTop <= 0)) {
+    if (e.cancelable) e.preventDefault();
   }
 }, { passive: false });
 
@@ -1461,6 +1465,23 @@ document.getElementById('login-senha').addEventListener('keypress', e => { if (e
 
 
 // ===== LOGIN PERSISTENTE — verifica ao abrir =====
+(function verificarLoginSalvo() {
+  const OITO_HORAS = 8 * 60 * 60 * 1000;
+  const cache = localStorage.getItem('twm_user_cache');
+  const aviso = document.getElementById('aviso-primeiro-login');
+
+  if (!cache) return;
+
+  aviso.style.display = 'none';
+
+  try {
+    const u = JSON.parse(cache);
+    const tempoPassado = Date.now() - (u.loginTime || 0);
+    if (tempoPassado < OITO_HORAS) {
+      entrarNoApp(u);
+    }
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
