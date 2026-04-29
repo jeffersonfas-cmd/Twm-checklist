@@ -1355,7 +1355,7 @@ function renderCarrosServico() {
           <div class="carro-modelo">${carro.modelo} ${carro.cor ? '· ' + carro.cor : ''} ${carro.ano ? '· ' + carro.ano : ''}</div>
           <div class="carro-em-uso-detalhe">
             👤 ${emUso.motorista} &nbsp;·&nbsp; 📍 ${emUso.local}<br>
-            🕐 Saída: ${emUso.data_saida} &nbsp;·&nbsp; KM: ${emUso.km_saida}
+            🕐 Saída: ${formatarDataHistorico(emUso.data_saida)} &nbsp;·&nbsp; KM: ${emUso.km_saida}
           </div>
         </div>`;
     } else {
@@ -1509,7 +1509,7 @@ async function confirmarSaida() {
   const pad = n => String(n).padStart(2,'0');
   const utc = new Date();
   const br = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
-  const dataSaida = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}`;
+  const dataSaida = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}:${pad(br.getUTCSeconds())}`;
 
   const registro = {
     action: 'saida_servico',
