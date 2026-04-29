@@ -1386,6 +1386,7 @@ function abrirFormSaida(carro) {
   const modal = document.getElementById('modal-overlay');
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-title">🚗 ${carro.placa} — Registrar Saída</div>
+    <input type="hidden" id="srv-placa-atual" value="${carro.placa}">
     <div class="modal-row"><span class="modal-row-label">Modelo</span><span class="modal-row-val">${carro.modelo}</span></div>
 
     <div style="margin-top:14px">
@@ -1422,7 +1423,7 @@ function abrirFormSaida(carro) {
         style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
         Cancelar
       </button>
-      <button onclick="confirmarSaida('${carro.placa}')"
+      <button onclick="confirmarSaida(this.dataset.placa)" data-placa="${carro.placa}"
         style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--purple);color:white;font-size:15px;font-weight:700;cursor:pointer">
         ✅ Confirmar Saída
       </button>
@@ -1464,7 +1465,7 @@ function abrirFormRetorno(carro, registro) {
         style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
         Cancelar
       </button>
-      <button onclick="confirmarRetorno('${carro.placa}','${registro.id}')"
+      <button onclick="confirmarRetorno(this.dataset.placa, this.dataset.id)" data-placa="${carro.placa}" data-id="${registro.id}"
         style="flex:1;padding:14px;border:none;border-radius:12px;background:#DC2626;color:white;font-size:15px;font-weight:700;cursor:pointer">
         🏁 Confirmar Retorno
       </button>
@@ -1489,6 +1490,11 @@ function previewFotoServico(input, tipo) {
 
 // ── CONFIRMAR SAÍDA ──────────────────────────────────────────
 async function confirmarSaida(placa) {
+  // Tenta pegar a placa do campo oculto se não vier como parâmetro
+  if (!placa) {
+    const el = document.getElementById('srv-placa-atual');
+    placa = el ? el.value : '';
+  }
   const motorista = document.getElementById('srv-motorista').value.trim();
   const local = document.getElementById('srv-local').value.trim();
   const km = document.getElementById('srv-km-saida').value.trim();
@@ -1496,7 +1502,6 @@ async function confirmarSaida(placa) {
   if (!motorista) { showToast('Preencha o nome do motorista'); return; }
   if (!local) { showToast('Preencha o destino'); return; }
   if (!km) { showToast('Preencha a KM de saída'); return; }
-  if (!fotoServicoBase64) { showToast('Tire a foto de saída'); return; }
 
   const pad = n => String(n).padStart(2,'0');
   const utc = new Date();
@@ -1535,7 +1540,6 @@ async function confirmarSaida(placa) {
 async function confirmarRetorno(placa, registroId) {
   const km = document.getElementById('srv-km-retorno').value.trim();
   if (!km) { showToast('Preencha a KM de retorno'); return; }
-  if (!fotoServicoBase64) { showToast('Tire a foto de retorno'); return; }
 
   const pad = n => String(n).padStart(2,'0');
   const utc = new Date();
@@ -1756,7 +1760,11 @@ function abrirModalChecklist(id) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function fecharModal(e) { if (e.target === document.getElementById('modal-overlay')) fecharModalBtn(); }
+function fecharModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay')) {
+    fecharModalBtn();
+  }
+}
 function fecharModalBtn() { document.getElementById('modal-overlay').classList.remove('open'); }
 
 // ===== TOAST =====
