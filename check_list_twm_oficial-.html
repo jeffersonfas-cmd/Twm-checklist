@@ -1298,6 +1298,8 @@ function salvarChecklist() {
 // ===== CARROS DE SERVIÇO =====
 let carrosServico = [];
 let registrosServico = [];
+let carroAtualPlaca = '';
+let registroAtualId = '';
 
 async function carregarCarrosServico() {
   const div = document.getElementById('lista-carros-servico');
@@ -1383,6 +1385,8 @@ function abrirCarroServico(placa) {
 
 // ── FORMULÁRIO DE SAÍDA ──────────────────────────────────────
 function abrirFormSaida(carro) {
+  carroAtualPlaca = carro.placa;
+  fotoServicoBase64 = '';
   const modal = document.getElementById('modal-overlay');
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-title">🚗 ${carro.placa} — Registrar Saída</div>
@@ -1423,7 +1427,7 @@ function abrirFormSaida(carro) {
         style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
         Cancelar
       </button>
-      <button onclick="confirmarSaida(this.dataset.placa)" data-placa="${carro.placa}"
+      <button onclick="confirmarSaida()"
         style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--purple);color:white;font-size:15px;font-weight:700;cursor:pointer">
         ✅ Confirmar Saída
       </button>
@@ -1434,6 +1438,9 @@ function abrirFormSaida(carro) {
 
 // ── FORMULÁRIO DE RETORNO ────────────────────────────────────
 function abrirFormRetorno(carro, registro) {
+  carroAtualPlaca = carro.placa;
+  registroAtualId = registro.id;
+  fotoServicoBase64 = '';
   const modal = document.getElementById('modal-overlay');
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-title">🔴 ${carro.placa} — Registrar Retorno</div>
@@ -1465,7 +1472,7 @@ function abrirFormRetorno(carro, registro) {
         style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
         Cancelar
       </button>
-      <button onclick="confirmarRetorno(this.dataset.placa, this.dataset.id)" data-placa="${carro.placa}" data-id="${registro.id}"
+      <button onclick="confirmarRetorno()"
         style="flex:1;padding:14px;border:none;border-radius:12px;background:#DC2626;color:white;font-size:15px;font-weight:700;cursor:pointer">
         🏁 Confirmar Retorno
       </button>
@@ -1489,12 +1496,8 @@ function previewFotoServico(input, tipo) {
 }
 
 // ── CONFIRMAR SAÍDA ──────────────────────────────────────────
-async function confirmarSaida(placa) {
-  // Tenta pegar a placa do campo oculto se não vier como parâmetro
-  if (!placa) {
-    const el = document.getElementById('srv-placa-atual');
-    placa = el ? el.value : '';
-  }
+async function confirmarSaida() {
+  const placa = carroAtualPlaca;
   const motorista = document.getElementById('srv-motorista').value.trim();
   const local = document.getElementById('srv-local').value.trim();
   const km = document.getElementById('srv-km-saida').value.trim();
@@ -1537,7 +1540,9 @@ async function confirmarSaida(placa) {
 }
 
 // ── CONFIRMAR RETORNO ────────────────────────────────────────
-async function confirmarRetorno(placa, registroId) {
+async function confirmarRetorno() {
+  const placa = carroAtualPlaca;
+  const registroId = registroAtualId;
   const km = document.getElementById('srv-km-retorno').value.trim();
   if (!km) { showToast('Preencha a KM de retorno'); return; }
 
