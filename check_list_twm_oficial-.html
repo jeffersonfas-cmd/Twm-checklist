@@ -149,6 +149,41 @@
     cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent;
   }
   .truck-card:active { transform: scale(0.98); box-shadow: 0 1px 6px rgba(123,47,190,0.10); }
+
+  /* Carros de serviço */
+  .carro-card {
+    background: #fff; border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+    box-shadow: var(--shadow); cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border-left: 5px solid var(--green);
+    position: relative; overflow: hidden;
+  }
+  .carro-card.em-uso {
+    border-left-color: var(--red);
+    background: #FFF5F5;
+  }
+  .carro-card:active { transform: scale(0.98); }
+  .carro-card-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+  }
+  .carro-placa {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px; font-weight: 700; color: var(--purple-dark);
+    letter-spacing: 2px;
+  }
+  .carro-status {
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .carro-status.disponivel { background: #DCFCE7; color: #15803D; }
+  .carro-status.em-uso { background: #FEE2E2; color: #DC2626; }
+  .carro-modelo { font-size: 13px; color: var(--gray-500); margin-bottom: 4px; }
+  .carro-info { font-size: 12px; color: var(--gray-400); }
+  .carro-em-uso-detalhe {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed #fca5a5;
+    font-size: 12px; color: #DC2626;
+  }
   .truck-icon {
     width: 48px; height: 48px; background: var(--purple-faint); border-radius: 10px;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -459,6 +494,15 @@
     <div id="hist-caminhao"></div>
   </div>
 
+  <!-- Página: Carros de Serviço -->
+  <div id="page-servico" class="page-content" style="display:none">
+    <div class="section-title">Carros de Serviço</div>
+    <div class="section-sub" id="servico-sub">Controle de uso dos veículos</div>
+    <div id="lista-carros-servico">
+      <div class="no-items">⏳ Carregando...</div>
+    </div>
+  </div>
+
   <!-- Página: Histórico Geral -->
   <div id="page-historico" class="page-content" style="display:none">
     <div class="section-title">Histórico</div>
@@ -481,6 +525,10 @@
     <button class="nav-item" id="nav-historico" onclick="showPage('historico')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
       HISTÓRICO
+    </button>
+    <button class="nav-item" id="nav-servico" onclick="showPage('servico')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v9a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M14 3v5h5"/></svg>
+      CARROS SERVIÇO
     </button>
   </nav>
 </div>
@@ -902,6 +950,12 @@ function showPage(page) {
     document.getElementById('page-detalhe').style.display = 'block';
     document.getElementById('header-title').textContent = 'DETALHES';
     history.pushState({ screen: 'app', page: 'detalhe' }, '');
+  } else if (page === 'servico') {
+    document.getElementById('page-servico').style.display = 'block';
+    document.getElementById('nav-servico').classList.add('active');
+    document.getElementById('header-title').textContent = 'SERVIÇO';
+    history.pushState({ screen: 'app', page: 'servico' }, '');
+    carregarCarrosServico();
   } else if (page === 'historico') {
     document.getElementById('page-historico').style.display = 'block';
     document.getElementById('nav-historico').classList.add('active');
@@ -1239,6 +1293,281 @@ function salvarChecklist() {
     showToast('❌ Erro: ' + err.message);
     console.error('Erro ao salvar:', err);
   }
+}
+
+// ===== CARROS DE SERVIÇO =====
+let carrosServico = [];
+let registrosServico = [];
+
+async function carregarCarrosServico() {
+  const div = document.getElementById('lista-carros-servico');
+  div.innerHTML = '<div class="no-items">⏳ Carregando carros...</div>';
+
+  if (!SCRIPT_URL || !navigator.onLine) {
+    div.innerHTML = '<div class="no-items">📵 Sem internet.</div>';
+    return;
+  }
+
+  for (let t = 1; t <= 3; t++) {
+    try {
+      const url = `${SCRIPT_URL}?action=carros_servico`;
+      const res = await fetch(url, { redirect: 'follow' });
+      const data = await res.json();
+
+      if (!data.ok) {
+        div.innerHTML = `<div class="no-items">Erro: ${data.msg}</div>`;
+        return;
+      }
+
+      carrosServico = data.carros || [];
+      registrosServico = data.registros || [];
+      renderCarrosServico();
+      return;
+    } catch(e) {
+      if (t === 3) div.innerHTML = '<div class="no-items">❌ Erro de conexão.</div>';
+      else await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+}
+
+function renderCarrosServico() {
+  const div = document.getElementById('lista-carros-servico');
+  if (!carrosServico.length) {
+    div.innerHTML = '<div class="no-items">Nenhum carro cadastrado na planilha.</div>';
+    return;
+  }
+
+  // Para cada carro, verifica se tem registro em aberto
+  div.innerHTML = carrosServico.map(carro => {
+    const emUso = registrosServico.find(r =>
+      r.placa === carro.placa && r.status === 'EM USO'
+    );
+
+    if (emUso) {
+      return `
+        <div class="carro-card em-uso" onclick="abrirCarroServico('${carro.placa}')">
+          <div class="carro-card-header">
+            <div class="carro-placa">🚗 ${carro.placa}</div>
+            <div class="carro-status em-uso">🔴 Em Uso</div>
+          </div>
+          <div class="carro-modelo">${carro.modelo} ${carro.cor ? '· ' + carro.cor : ''} ${carro.ano ? '· ' + carro.ano : ''}</div>
+          <div class="carro-em-uso-detalhe">
+            👤 ${emUso.motorista} &nbsp;·&nbsp; 📍 ${emUso.local}<br>
+            🕐 Saída: ${emUso.data_saida} &nbsp;·&nbsp; KM: ${emUso.km_saida}
+          </div>
+        </div>`;
+    } else {
+      return `
+        <div class="carro-card" onclick="abrirCarroServico('${carro.placa}')">
+          <div class="carro-card-header">
+            <div class="carro-placa">🚗 ${carro.placa}</div>
+            <div class="carro-status disponivel">🟢 Disponível</div>
+          </div>
+          <div class="carro-modelo">${carro.modelo} ${carro.cor ? '· ' + carro.cor : ''} ${carro.ano ? '· ' + carro.ano : ''}</div>
+          <div class="carro-info">Toque para registrar saída</div>
+        </div>`;
+    }
+  }).join('');
+}
+
+function abrirCarroServico(placa) {
+  const carro = carrosServico.find(c => c.placa === placa);
+  const emUso = registrosServico.find(r => r.placa === placa && r.status === 'EM USO');
+
+  if (emUso) {
+    abrirFormRetorno(carro, emUso);
+  } else {
+    abrirFormSaida(carro);
+  }
+}
+
+// ── FORMULÁRIO DE SAÍDA ──────────────────────────────────────
+function abrirFormSaida(carro) {
+  const modal = document.getElementById('modal-overlay');
+  document.getElementById('modal-content').innerHTML = `
+    <div class="modal-title">🚗 ${carro.placa} — Registrar Saída</div>
+    <div class="modal-row"><span class="modal-row-label">Modelo</span><span class="modal-row-val">${carro.modelo}</span></div>
+
+    <div style="margin-top:14px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">Motorista *</label>
+      <input id="srv-motorista" type="text" placeholder="Nome completo"
+        style="width:100%;margin-top:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:14px">
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">Destino / Local *</label>
+      <input id="srv-local" type="text" placeholder="Para onde vai?"
+        style="width:100%;margin-top:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:14px">
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">KM de Saída *</label>
+      <input id="srv-km-saida" type="number" placeholder="Ex: 45230"
+        style="width:100%;margin-top:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:14px">
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">Foto (selfie de saída) *</label>
+      <div style="margin-top:6px">
+        <div id="srv-foto-preview" style="display:none;margin-bottom:8px">
+          <img id="srv-foto-img" style="width:100%;border-radius:10px;max-height:150px;object-fit:cover">
+        </div>
+        <button onclick="document.getElementById('srv-foto-input').click()"
+          style="width:100%;padding:12px;border:2px dashed var(--purple);border-radius:10px;background:var(--purple-faint);color:var(--purple);font-weight:600;font-size:14px;cursor:pointer">
+          📷 Tirar Foto
+        </button>
+        <input type="file" id="srv-foto-input" accept="image/*" capture="user" style="display:none" onchange="previewFotoServico(this,'saida')">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="fecharModal()"
+        style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
+        Cancelar
+      </button>
+      <button onclick="confirmarSaida('${carro.placa}')"
+        style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--purple);color:white;font-size:15px;font-weight:700;cursor:pointer">
+        ✅ Confirmar Saída
+      </button>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+// ── FORMULÁRIO DE RETORNO ────────────────────────────────────
+function abrirFormRetorno(carro, registro) {
+  const modal = document.getElementById('modal-overlay');
+  document.getElementById('modal-content').innerHTML = `
+    <div class="modal-title">🔴 ${carro.placa} — Registrar Retorno</div>
+    <div class="modal-row"><span class="modal-row-label">Motorista</span><span class="modal-row-val">${registro.motorista}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Destino</span><span class="modal-row-val">${registro.local}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Saída</span><span class="modal-row-val">${registro.data_saida} · KM ${registro.km_saida}</span></div>
+
+    <div style="margin-top:14px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">KM de Retorno *</label>
+      <input id="srv-km-retorno" type="number" placeholder="Ex: 45380"
+        style="width:100%;margin-top:6px;padding:12px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:14px">
+    </div>
+    <div style="margin-top:12px">
+      <label style="font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:1px">Foto (selfie de retorno) *</label>
+      <div style="margin-top:6px">
+        <div id="srv-foto-preview" style="display:none;margin-bottom:8px">
+          <img id="srv-foto-img" style="width:100%;border-radius:10px;max-height:150px;object-fit:cover">
+        </div>
+        <button onclick="document.getElementById('srv-foto-input').click()"
+          style="width:100%;padding:12px;border:2px dashed #DC2626;border-radius:10px;background:#FFF5F5;color:#DC2626;font-weight:600;font-size:14px;cursor:pointer">
+          📷 Tirar Foto de Retorno
+        </button>
+        <input type="file" id="srv-foto-input" accept="image/*" capture="user" style="display:none" onchange="previewFotoServico(this,'retorno')">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="fecharModal()"
+        style="flex:1;padding:14px;border:2px solid var(--gray-200);border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">
+        Cancelar
+      </button>
+      <button onclick="confirmarRetorno('${carro.placa}','${registro.id}')"
+        style="flex:1;padding:14px;border:none;border-radius:12px;background:#DC2626;color:white;font-size:15px;font-weight:700;cursor:pointer">
+        🏁 Confirmar Retorno
+      </button>
+    </div>
+  `;
+  modal.classList.add('open');
+}
+
+let fotoServicoBase64 = '';
+
+function previewFotoServico(input, tipo) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fotoServicoBase64 = e.target.result;
+    document.getElementById('srv-foto-preview').style.display = 'block';
+    document.getElementById('srv-foto-img').src = fotoServicoBase64;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── CONFIRMAR SAÍDA ──────────────────────────────────────────
+async function confirmarSaida(placa) {
+  const motorista = document.getElementById('srv-motorista').value.trim();
+  const local = document.getElementById('srv-local').value.trim();
+  const km = document.getElementById('srv-km-saida').value.trim();
+
+  if (!motorista) { showToast('Preencha o nome do motorista'); return; }
+  if (!local) { showToast('Preencha o destino'); return; }
+  if (!km) { showToast('Preencha a KM de saída'); return; }
+  if (!fotoServicoBase64) { showToast('Tire a foto de saída'); return; }
+
+  const pad = n => String(n).padStart(2,'0');
+  const utc = new Date();
+  const br = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
+  const dataSaida = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}`;
+
+  const registro = {
+    action: 'saida_servico',
+    id: Date.now().toString(36),
+    placa, motorista, local,
+    km_saida: km,
+    data_saida: dataSaida,
+    foto_saida: 'Foto enviada',
+    status: 'EM USO'
+  };
+
+  fecharModal();
+  showToast('⏳ Registrando saída...');
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(registro)
+    });
+    showToast('✅ Saída registrada!');
+  } catch(e) {
+    showToast('⚠️ Erro ao enviar — tente novamente');
+  }
+
+  fotoServicoBase64 = '';
+  await carregarCarrosServico();
+}
+
+// ── CONFIRMAR RETORNO ────────────────────────────────────────
+async function confirmarRetorno(placa, registroId) {
+  const km = document.getElementById('srv-km-retorno').value.trim();
+  if (!km) { showToast('Preencha a KM de retorno'); return; }
+  if (!fotoServicoBase64) { showToast('Tire a foto de retorno'); return; }
+
+  const pad = n => String(n).padStart(2,'0');
+  const utc = new Date();
+  const br = new Date(utc.getTime() - 3 * 60 * 60 * 1000);
+  const dataRetorno = `${pad(br.getUTCDate())}/${pad(br.getUTCMonth()+1)}/${br.getUTCFullYear()} ${pad(br.getUTCHours())}:${pad(br.getUTCMinutes())}`;
+
+  const dados = {
+    action: 'retorno_servico',
+    placa,
+    registro_id: registroId,
+    km_retorno: km,
+    data_retorno: dataRetorno,
+    foto_retorno: 'Foto enviada',
+    status: 'DISPONÍVEL'
+  };
+
+  fecharModal();
+  showToast('⏳ Registrando retorno...');
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+    showToast('✅ Retorno registrado!');
+  } catch(e) {
+    showToast('⚠️ Erro ao enviar — tente novamente');
+  }
+
+  fotoServicoBase64 = '';
+  await carregarCarrosServico();
 }
 
 // ===== HISTÓRICO — busca direto da planilha =====
